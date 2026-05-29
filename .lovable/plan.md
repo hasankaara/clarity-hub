@@ -1,55 +1,36 @@
-## Tutoring Center Website — Plan
+## Goal
 
-A calm, approachable, professional marketing site for a tutoring center. Placeholder name/logo/imagery throughout so the owner can swap in real branding later with one find-and-replace.
+Make the site deployable on Vercel. The project is currently configured for Cloudflare Workers (via `@cloudflare/vite-plugin` and a custom `src/server.ts` wrapper), which is why Vercel deploys are failing — Vercel doesn't know how to run a Cloudflare Worker bundle.
 
-### Design direction
+## Plan
 
-- **Palette (Sage & Cream):** cream background `#f5f0e8`, soft sage surface `#dce5d4`, sage accent `#a8c0a0`, deep sage primary `#7d9b76`, deep ink foreground for readable contrast. All wired as semantic tokens in `src/styles.css` using `oklch`.
-- **Typography:** Outfit for headings (medium weight, slightly tight tracking), Figtree for body. Loaded via Google Fonts in the root `head()`.
-- **Composition:** split-screen hero (message left, warm classroom photo right). Generous whitespace, rounded-2xl cards, soft shadows, subtle sage dividers. Restrained motion (fade/slide on scroll only).
-- **Accessibility:** AA contrast, semantic HTML, alt text, focus states, large tap targets.
+### 1. Switch the build target to Vercel
 
-### Site structure (separate routes for SEO)
+- Update `vite.config.ts` to set the TanStack Start target to `"vercel"` instead of relying on the default Cloudflare build. With `@lovable.dev/vite-tanstack-config`, pass `tanstackStart: { target: "vercel" }` and drop the custom `server.entry` override (Vercel uses its own serverless entry, not our Cloudflare wrapper).
+- This makes TanStack Start emit a Vercel-compatible build output (`.vercel/output/...`) that Vercel's build pipeline auto-detects.
 
-```
-/             Home — split hero, programs preview, why-us, testimonials, CTA
-/about        Mission, story, team (placeholder portraits)
-/programs     Subjects & grade levels with detail cards
-/pricing      Simple tiered pricing + FAQ teaser
-/contact      Contact form + location/hours
-```
+### 2. Remove Cloudflare-only pieces from the build
 
-Each route gets its own `head()` with unique title/description/og tags. Shared header (logo placeholder + nav + "Book a session" CTA) and footer (contact, hours, social placeholders) live in `__root.tsx`.
+- Remove `@cloudflare/vite-plugin` from `package.json` dependencies (the Lovable preset auto-injects it only when targeting Cloudflare).
+- Delete `wrangler.jsonc` if present (Cloudflare-only config).
+- Keep `src/server.ts`, `src/lib/error-capture.ts`, and `src/lib/error-page.ts` for local reference but stop wiring them as the SSR entry — Vercel's adapter handles its own SSR error path.
 
-### Home page sections
+### 3. Add minimal Vercel config
 
-1. **Split hero** — left: headline, sub-copy, two CTAs ("Book a free assessment", "Browse programs"); right: placeholder photo of a tutoring session.
-2. **Trust strip** — small row of placeholder partner/school logos.
-3. **Programs preview** — 3 cards (Elementary, Middle/High School, Test Prep) linking to `/programs`.
-4. **Why choose us** — 4 feature tiles (certified tutors, personalized plans, small groups, progress tracking) with simple icons.
-5. **How it works** — 3-step zigzag (Assess → Match → Grow) with placeholder images.
-6. **Testimonials** — 3 parent/student quote cards.
-7. **CTA band** — sage block with "Ready to get started?" + contact button.
+- Add a `vercel.json` with `{ "framework": null }` (or omit entirely) so Vercel uses the build output directory produced by TanStack Start without trying to guess a framework.
+- No environment variables are required for this site (no Cloud / Supabase usage yet).
 
-### Placeholder images
+### 4. Verify
 
-Use generated soft, warm, on-brand placeholder images saved to `src/assets/`:
-- hero classroom scene, 3 program thumbnails, 3 step illustrations, 3 team portraits, 1 about-page photo.
+- Run `bun run build` locally after the changes to confirm it produces a `.vercel/output/` directory.
+- On Vercel, the project should auto-detect the output and serve all 5 routes (`/`, `/about`, `/programs`, `/pricing`, `/contact`) with SSR.
 
-Every image is imported by name so the owner can drop in a replacement file with the same name later.
+## Out of scope
 
-### Technical details
+- No design or content changes.
+- No backend / Lovable Cloud changes.
+- Keeping a parallel Cloudflare deploy working — this plan moves the project entirely to Vercel. If you also want to keep Cloudflare as an option, let me know and I'll make the target configurable.
 
-- TanStack Start file-based routes under `src/routes/` (flat dot convention if nested needed).
-- Design tokens defined in `src/styles.css` `:root` (and `.dark` mirror) and mapped in `@theme inline`. No hex colors in components — only `bg-primary`, `text-foreground`, etc.
-- Reusable components: `SiteHeader`, `SiteFooter`, `SectionHeading`, `ProgramCard`, `FeatureTile`, `TestimonialCard`, `CTASection`, `ContactForm` (frontend-only, shows a toast on submit — no backend until requested).
-- shadcn `Button`, `Card`, `Input`, `Textarea`, `Accordion` (for FAQ), `Sonner` (toasts).
-- Each route sets distinct meta; root has no `og:image` (leaves only).
-- No backend, auth, or database in this pass. The contact form is non-functional pending a Lovable Cloud opt-in later.
+## Note
 
-### Out of scope (ask before adding)
-
-- Real backend / contact form delivery / booking system
-- CMS or blog
-- Online payments
-- Auth or student portal
+If you already tried deploying to Vercel and saw a specific error in the Vercel build log, paste it here — it'll help me confirm this is the right fix vs. something more specific (e.g., a missing env var or a Node-version mismatch).
